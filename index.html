@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WeatherPro | Premium Weather Dashboard</title>
+  
+  <!-- CDNs for Maps, Charts, and Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="theme-default">
+
+  <!-- Ambient Canvas Background -->
+  <canvas id="ambientCanvas"></canvas>
+
+  <!-- Initial Loader -->
+  <div id="initialLoader" class="initial-loader">
+    <div class="loader-inner">
+      <div class="loader-ring"></div>
+      <p class="loader-text">Loading weather data...</p>
+    </div>
+  </div>
+
+  <div class="app-container">
+
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="sidebar">
+
+      <!-- Brand -->
+      <div class="brand">
+        <div class="brand-icon-wrap">
+          <i class="fa-solid fa-cloud-sun brand-icon"></i>
+        </div>
+        <span class="brand-name">WeatherPro</span>
+      </div>
+
+      <!-- Search -->
+      <div class="search-module" style="position: relative;">
+        <div class="search-input-wrapper" id="searchWrapper">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input type="text" id="cityInput" placeholder="Search any city..." autocomplete="off" />
+          <button id="clearBtn" class="icon-btn clear-btn" title="Clear">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <ul id="searchSuggestions" class="search-suggestions hidden"></ul>
+        <button id="locationBtn" class="location-btn">
+          <i class="fa-solid fa-location-crosshairs"></i>
+          Use my location
+        </button>
+        <p id="errorMsg" class="error-msg hidden">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span id="errorText">Location not found.</span>
+        </p>
+      </div>
+
+      <!-- Pinned Locations -->
+      <div class="sidebar-section">
+        <h3 class="section-title">
+          <i class="fa-solid fa-star"></i>
+          Pinned Locations
+        </h3>
+        <ul id="pinnedList" class="pinned-list"></ul>
+        <p id="pinnedEmpty" class="pinned-empty">No pinned locations yet.</p>
+      </div>
+
+      <!-- Recent Searches -->
+      <div class="sidebar-section">
+        <h3 class="section-title">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          Recent
+        </h3>
+        <ul id="recentList" class="recent-list"></ul>
+        <p id="recentEmpty" class="recent-empty">No recent searches yet.</p>
+      </div>
+
+      <!-- Unit Toggle -->
+      <div class="sidebar-section sidebar-bottom">
+        <h3 class="section-title">
+          <i class="fa-solid fa-sliders"></i>
+          Units
+        </h3>
+        <div class="unit-toggle">
+          <button class="unit-btn active" data-unit="metric">
+            <span class="unit-symbol">°C</span>
+            <span class="unit-label">Celsius</span>
+          </button>
+          <button class="unit-btn" data-unit="imperial">
+            <span class="unit-symbol">°F</span>
+            <span class="unit-label">Fahrenheit</span>
+          </button>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ===== MAIN ===== -->
+    <main class="main-content">
+
+      <!-- Top Bar -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <p class="topbar-greeting" id="greeting">Good morning</p>
+          <h2 id="currentDate" class="topbar-date">--</h2>
+        </div>
+        <div class="topbar-right">
+          <div class="local-time-badge">
+            <i class="fa-regular fa-clock"></i>
+            <span id="localTime">--:--</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Empty State (shown before first search) -->
+      <div id="emptyState" class="empty-state hidden">
+        <div class="empty-illustration">
+          <i class="fa-solid fa-cloud-sun-rain"></i>
+        </div>
+        <h3>Search for a city to begin</h3>
+        <p>Get real-time weather, forecasts, air quality, and more.</p>
+      </div>
+
+      <!-- Dashboard -->
+      <div id="dashboardData" class="dashboard hidden">
+
+        <!-- ROW 1: Hero + Highlights -->
+        <div class="row-primary">
+
+          <!-- Hero Card -->
+          <div class="hero-card glass-card">
+            <div class="hero-top">
+              <div class="hero-location">
+                <div class="city-name-row">
+                  <h1 id="cityName" class="city-name">--</h1>
+                  <button id="pinCityBtn" class="pin-city-btn" title="Pin City">
+                    <i class="fa-regular fa-star"></i>
+                  </button>
+                </div>
+                <div class="location-meta">
+                  <span id="countryCode" class="country-badge">--</span>
+                  <span id="weatherDate" class="hero-date">--</span>
+                </div>
+              </div>
+              <img id="mainIcon" src="" alt="Weather icon" class="hero-weather-icon" />
+            </div>
+            <div class="hero-middle">
+              <div class="hero-temp-block">
+                <span id="temperature" class="main-temp">--</span>
+                <span class="temp-degree">°</span>
+              </div>
+              <p id="weatherDesc" class="hero-desc">--</p>
+            </div>
+            <div class="hero-footer">
+              <div class="hero-stat">
+                <i class="fa-solid fa-temperature-arrow-up"></i>
+                <span>High <strong id="tempMax">--</strong>°</span>
+              </div>
+              <div class="hero-stat-divider"></div>
+              <div class="hero-stat">
+                <i class="fa-solid fa-temperature-arrow-down"></i>
+                <span>Low <strong id="tempMin">--</strong>°</span>
+              </div>
+              <div class="hero-stat-divider"></div>
+              <div class="hero-stat">
+                <i class="fa-solid fa-droplet"></i>
+                <span>Precip <strong id="heroPrecip">--</strong>%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stats Column -->
+          <div class="stats-column">
+
+            <div class="stat-card glass-card">
+              <div class="stat-header">
+                <span class="stat-label">Feels Like</span>
+                <div class="stat-icon icon-orange">
+                  <i class="fa-solid fa-temperature-half"></i>
+                </div>
+              </div>
+              <div class="stat-body">
+                <span class="stat-value"><span id="feelsLike">--</span>°</span>
+                <p id="feelsDesc" class="stat-desc">--</p>
+              </div>
+            </div>
+
+            <div class="stat-card glass-card">
+              <div class="stat-header">
+                <span class="stat-label">Humidity</span>
+                <div class="stat-icon icon-blue">
+                  <i class="fa-solid fa-droplet"></i>
+                </div>
+              </div>
+              <div class="stat-body">
+                <span class="stat-value"><span id="humidity">--</span>%</span>
+                <div class="progress-track">
+                  <div id="humidityBar" class="progress-fill"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="stat-card glass-card">
+              <div class="stat-header">
+                <span class="stat-label">Wind Speed</span>
+                <div class="stat-icon icon-teal">
+                  <i class="fa-solid fa-wind"></i>
+                </div>
+              </div>
+              <div class="stat-body">
+                <span class="stat-value"><span id="windSpeed">--</span> <span class="stat-unit" id="windUnit">km/h</span></span>
+                <p class="stat-desc">Direction: <span id="windDir">--</span>°</p>
+              </div>
+            </div>
+
+            <div class="stat-card glass-card">
+              <div class="stat-header">
+                <span class="stat-label">Visibility</span>
+                <div class="stat-icon icon-purple">
+                  <i class="fa-regular fa-eye"></i>
+                </div>
+              </div>
+              <div class="stat-body">
+                <span class="stat-value"><span id="visibility">--</span> <span class="stat-unit">km</span></span>
+                <p id="visDesc" class="stat-desc">--</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ROW 2: AQI + Sunrise + UV -->
+        <div class="row-secondary">
+
+          <div class="aqi-card glass-card">
+            <div class="card-label-row">
+              <i class="fa-solid fa-leaf"></i>
+              Air Quality
+            </div>
+            <div class="aqi-body">
+              <div id="aqiMeter" class="aqi-meter">
+                <div id="aqiFill" class="aqi-fill"></div>
+                <div id="aqiDot" class="aqi-dot"></div>
+              </div>
+              <div class="aqi-meta">
+                <span id="aqiValue" class="aqi-number">--</span>
+                <span id="aqiDesc" class="aqi-label">--</span>
+              </div>
+              <div class="aqi-components">
+                <div class="aqi-comp"><span class="comp-label">PM2.5</span><span id="pm25" class="comp-val">--</span></div>
+                <div class="aqi-comp"><span class="comp-label">PM10</span><span id="pm10" class="comp-val">--</span></div>
+                <div class="aqi-comp"><span class="comp-label">O₃</span><span id="o3" class="comp-val">--</span></div>
+                <div class="aqi-comp"><span class="comp-label">NO₂</span><span id="no2" class="comp-val">--</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sun-card glass-card">
+            <div class="card-label-row">
+              <i class="fa-regular fa-sun"></i>
+              Sun Times
+            </div>
+            <div class="sun-body">
+              <div class="sun-arc-wrap">
+                <svg class="sun-arc" viewBox="0 0 200 110" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M 10 100 A 90 90 0 0 1 190 100" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="4" stroke-linecap="round"/>
+                  <path id="sunArcFill" d="M 10 100 A 90 90 0 0 1 190 100" fill="none" stroke="rgba(251,191,36,0.5)" stroke-width="4" stroke-linecap="round" stroke-dasharray="283" stroke-dashoffset="141"/>
+                  <circle id="sunDotPos" cx="100" cy="10" r="8" fill="#fbbf24"/>
+                </svg>
+              </div>
+              <div class="sun-times-row">
+                <div class="sun-time">
+                  <div class="sun-time-icon">
+                    <i class="fa-solid fa-arrow-up"></i>
+                  </div>
+                  <span class="sun-time-val" id="sunriseTime">--</span>
+                  <span class="sun-time-label">Sunrise</span>
+                </div>
+                <div class="sun-time">
+                  <div class="sun-time-icon sunset-icon">
+                    <i class="fa-solid fa-arrow-down"></i>
+                  </div>
+                  <span class="sun-time-val" id="sunsetTime">--</span>
+                  <span class="sun-time-label">Sunset</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pressure-card glass-card">
+            <div class="card-label-row">
+              <i class="fa-solid fa-gauge-high"></i>
+              Pressure & More
+            </div>
+            <div class="extra-stats">
+              <div class="extra-stat">
+                <span class="extra-label">Pressure</span>
+                <span class="extra-val"><span id="pressure">--</span> <span class="extra-unit">hPa</span></span>
+              </div>
+              <div class="extra-stat">
+                <span class="extra-label">Cloud Cover</span>
+                <span class="extra-val"><span id="cloudiness">--</span><span class="extra-unit">%</span></span>
+              </div>
+              <div class="extra-stat">
+                <span class="extra-label">Dew Point</span>
+                <span class="extra-val"><span id="dewPoint">--</span><span class="extra-unit">°</span></span>
+              </div>
+              <div class="extra-stat">
+                <span class="extra-label">Sea Level</span>
+                <span class="extra-val"><span id="seaLevel">--</span> <span class="extra-unit">hPa</span></span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ROW 3: Lifestyle & Map -->
+        <div class="row-tertiary">
+          
+          <!-- Lifestyle Card -->
+          <div class="lifestyle-card glass-card">
+            <div class="card-label-row">
+              <i class="fa-solid fa-compass"></i>
+              Smart Recommendation & Lifestyle
+            </div>
+            <div class="lifestyle-grid">
+              <div class="lifestyle-item">
+                <span class="lifestyle-label">Allergy Risk</span>
+                <div class="lifestyle-value-wrap">
+                  <div class="lifestyle-icon-circle icon-allergy">
+                    <i class="fa-solid fa-hand-dots"></i>
+                  </div>
+                  <span id="lifestyleAllergy" class="lifestyle-value">--</span>
+                </div>
+                <p id="lifestyleAllergyDesc" class="lifestyle-desc">--</p>
+              </div>
+              <div class="lifestyle-item">
+                <span class="lifestyle-label">Car Wash Index</span>
+                <div class="lifestyle-value-wrap">
+                  <div class="lifestyle-icon-circle icon-car">
+                    <i class="fa-solid fa-car"></i>
+                  </div>
+                  <span id="lifestyleCarWash" class="lifestyle-value">--</span>
+                </div>
+                <p id="lifestyleCarWashDesc" class="lifestyle-desc">--</p>
+              </div>
+              <div class="lifestyle-item">
+                <span class="lifestyle-label">Outdoor Activity</span>
+                <div class="lifestyle-value-wrap">
+                  <div class="lifestyle-icon-circle icon-fitness">
+                    <i class="fa-solid fa-person-running"></i>
+                  </div>
+                  <span id="lifestyleFitness" class="lifestyle-value">--</span>
+                </div>
+                <p id="lifestyleFitnessDesc" class="lifestyle-desc">--</p>
+              </div>
+              <div class="lifestyle-item">
+                <span class="lifestyle-label">Clothing Guide</span>
+                <div class="lifestyle-value-wrap">
+                  <div class="lifestyle-icon-circle icon-clothing">
+                    <i class="fa-solid fa-shirt"></i>
+                  </div>
+                  <span id="lifestyleClothing" class="lifestyle-value">--</span>
+                </div>
+                <p id="lifestyleClothingDesc" class="lifestyle-desc">--</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Weather Map Card -->
+          <div class="map-card glass-card">
+            <div class="card-label-row">
+              <i class="fa-solid fa-map-location-dot"></i>
+              Weather Radar Map
+            </div>
+            <div class="map-container-wrapper">
+              <div id="weatherMap" class="weather-map"></div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ROW 4: 5-Day Forecast -->
+        <div class="row-forecast glass-card">
+          <div class="forecast-header">
+            <div class="card-label-row">
+              <i class="fa-solid fa-calendar-days"></i>
+              5-Day Forecast
+            </div>
+          </div>
+          <div id="forecastContainer" class="forecast-strip"></div>
+        </div>
+
+        <!-- ROW 5: Hourly Forecast with Chart -->
+        <div class="row-hourly glass-card">
+          <div class="hourly-header">
+            <div class="card-label-row">
+              <i class="fa-regular fa-clock"></i>
+              Hourly Forecast
+            </div>
+            <div class="view-toggle">
+              <button id="hourlyListBtn" class="toggle-btn active" title="Show List">
+                <i class="fa-solid fa-list-ul"></i> List
+              </button>
+              <button id="hourlyChartBtn" class="toggle-btn" title="Show Graph">
+                <i class="fa-solid fa-chart-line"></i> Graph
+              </button>
+            </div>
+          </div>
+          
+          <div id="hourlyContainer" class="hourly-strip"></div>
+          
+          <div id="hourlyChartContainer" class="hourly-chart-container hidden">
+            <canvas id="hourlyChart"></canvas>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- CDN scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Application scripts -->
+  <script src="js/ambient-effects.js"></script>
+  <script src="js/app.js"></script>
+</body>B
+</html>
